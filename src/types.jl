@@ -19,8 +19,8 @@ include("interaction/iodevices.jl")
 This struct provides accessible `PriorityObservable`s to monitor the events
 associated with a Scene.
 
-Functions that act on a `PriorityObservable` must return true if the function 
-consumes an event and false if it does not. When an event is consumed it does 
+Functions that act on a `PriorityObservable` must return `Consume()` if the function
+consumes an event. When an event is consumed it does
 not trigger other observer functions. The order in which functions are exectued
 can be controlled via the `priority` keyword (default 0) in `on`.
 
@@ -29,9 +29,9 @@ Example:
 on(events(scene).mousebutton, priority = Int8(20)) do event
     if is_correct_event(event)
         do_something()
-        return true
+        return Consume()
     end
-    return false
+    return
 end
 ```
 
@@ -53,7 +53,7 @@ struct Events
     window_open::PriorityObservable{Bool}
 
     """
-    Most recently triggered `MouseButtonEvent`. Contains the relevant 
+    Most recently triggered `MouseButtonEvent`. Contains the relevant
     `event.button` and `event.action` (press/release)
 
     See also [`ispressed`](@ref).
@@ -116,9 +116,9 @@ function Events()
             error("Unrecognized Keyboard action $(event.action)")
         end
         # This never consumes because it just keeps track of the state
-        return false
+        return Consume(false)
     end
-        
+
     keyboardbutton = PriorityObservable(KeyEvent(Keyboard.unknown, Keyboard.release))
     keyboardstate = Set{Keyboard.Button}()
     on(keyboardbutton, priority = typemax(Int8)) do event
@@ -135,7 +135,7 @@ function Events()
             end
         end
         # This never consumes because it just keeps track of the state
-        return false
+        return Consume(false)
     end
 
     return Events(
@@ -173,7 +173,7 @@ function Base.getproperty(e::Events, field::Symbol)
         mousebuttons = Node(Set{Mouse.Button}())
         on(getfield(e, :mousebutton), priority=typemax(Int8)-1) do event
             mousebuttons[] = getfield(e, :mousebuttonstate)
-            return false
+            return Consume(false)
         end
         return mousebuttons
     elseif field == :keyboardbuttons
@@ -191,7 +191,7 @@ function Base.getproperty(e::Events, field::Symbol)
         keyboardbuttons = Node(Set{Keyboard.Button}())
         on(getfield(e, :keyboardbutton), priority=typemax(Int8)-1) do event
             keyboardbuttons[] = getfield(e, :keyboardstate)
-            return false
+            return Consume(false)
         end
         return keyboardbuttons
     elseif field == :mousedrag
@@ -213,7 +213,7 @@ function Base.getproperty(e::Events, field::Symbol)
             elseif mousedrag[] in (Mouse.down, Mouse.pressed)
                 mousedrag[] = Mouse.up
             end
-            return false
+            return Consume(false)
         end
         on(getfield(e, :mouseposition), priority=typemax(Int8)-1) do pos
             if mousedrag[] in (Mouse.down, Mouse.pressed)
@@ -221,14 +221,13 @@ function Base.getproperty(e::Events, field::Symbol)
             elseif mousedrag[] == Mouse.up
                 mousedrag[] = Mouse.notpressed
             end
-            return false
+            return Consume(false)
         end
         return mousedrag
     else
         getfield(e, field)
     end
 end
-
 
 mutable struct Camera
     pixel_space::Node{Mat4f0}
@@ -242,7 +241,6 @@ end
 
 """
 Holds the transformations for Scenes.
-
 ## Fields
 $(TYPEDFIELDS)
 """
@@ -263,62 +261,6 @@ struct Transformation <: Transformable
         )
     end
 end
-
-struct Combined{Typ, T} <: ScenePlot{Typ}
-    parent::SceneLike
-    transformation::Transformation
-    attributes::Attributes
-    input_args::Tuple
-    converted::Tuple
-    plots::Vector{AbstractPlot}
-end
-
-function Base.show(io::IO, plot::Combined)
-    print(io, typeof(plot))
-end
-
-parent(x::AbstractPlot) = x.parent
-
-function func2string(func::F) where F <: Function
-    string(F.name.mt.name)
-end
-
-plotkey(::Type{<: AbstractPlot{Typ}}) where Typ = Symbol(lowercase(func2string(Typ)))
-plotkey(::T) where T <: AbstractPlot = plotkey(T)
-
-plotfunc(::Type{<: AbstractPlot{Func}}) where Func = Func
-plotfunc(::T) where T <: AbstractPlot = plotfunc(T)
-plotfunc(f::Function) = f
-
-func2type(x::T) where T = func2type(T)
-func2type(x::Type{<: AbstractPlot}) = x
-func2type(f::Function) = Combined{f}
-
-
-"""
-    Billboard([angle::Real])
-    Billboard([angles::Vector{<: Real}])
-
-Billboard attribute to always have a primitive face the camera.
-Can be used for rotation.
-"""
-struct Billboard{T <: Union{Float32, Vector{Float32}}}
-    rotation::T
-end
-Billboard() = Billboard(0f0)
-Billboard(angle::Real) = Billboard(Float32(angle))
-Billboard(angles::Vector) = Billboard(Float32.(angles))
-
-"""
-Type to indicate that an attribute will get calculated automatically
-"""
-struct Automatic end
-
-"""
-Singleton instance to indicate that an attribute will get calculated automatically
-"""
-const automatic = Automatic()
-
 
 """
 `PlotSpec{P<:AbstractPlot}(args...; kwargs...)`
