@@ -266,7 +266,6 @@ function __init__()
     end
 end
 
-
 include("figures.jl")
 export content
 
