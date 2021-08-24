@@ -1,6 +1,4 @@
 # This file was generated, do not modify it. # hide
-__result = begin # hide
-  
 using CairoMakie
 using Random
 
@@ -58,10 +56,3 @@ function demofigure()
 
     f
 end
-
-demofigure()
-
-  end # hide
-  save(joinpath(@OUTPUT, "example_4477568125506792733.png"), __result) # hide
-  
-  nothing # hide
